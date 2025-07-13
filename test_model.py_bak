@@ -1,0 +1,28 @@
+import pickle
+import pandas as pd
+
+# 테스트할 URL 정보와 유저 ID
+url_path = "/settings/profile"
+user_id = "user1"
+
+url_len = len(url_path)
+slash_count = url_path.count("/")
+
+# 모델 및 LabelEncoder 로드
+with open("model/model.pkl", "rb") as f:
+    model = pickle.load(f)
+
+with open("model/label_encoder.pkl", "rb") as f:
+    le = pickle.load(f)
+
+# user_id를 숫자 인코딩 (학습 때와 동일하게)
+user_id_enc = le.transform([user_id])[0]
+
+# 예측 데이터 생성 (DataFrame)
+X_test = pd.DataFrame([[url_len, slash_count, user_id_enc]], columns=["url_len", "slash_count", "user_id_enc"])
+
+# 예측 수행
+result = model.predict(X_test)[0]
+
+print("\n✅ 예측 결과:")
+print("정상 접근" if result == 1 else "비정상 접근")

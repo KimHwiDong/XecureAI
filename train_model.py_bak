@@ -1,0 +1,55 @@
+import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report
+from sklearn.preprocessing import LabelEncoder
+import pickle
+import os
+
+# 1. 데이터 로드
+df = pd.read_csv("user_logs.csv")
+
+# 2. 유저별 URL 요청 횟수 집계
+user_url_counts = df.groupby(['user_id', 'url_path']).size().reset_index(name='visit_count')
+
+# 3. 라벨링: 방문 횟수 3회 이상은 정상(1), 미만은 비정상(0)
+user_url_counts['is_normal'] = user_url_counts['visit_count'].apply(lambda x: 1 if x >= 3 else 0)
+
+# 4. 유저 ID 숫자 인코딩
+le = LabelEncoder()
+user_url_counts['user_id_enc'] = le.fit_transform(user_url_counts['user_id'])
+
+# 5. 특징 추출: URL 길이, 슬래시 개수
+user_url_counts["url_len"] = user_url_counts["url_path"].apply(len)
+user_url_counts["slash_count"] = user_url_counts["url_path"].apply(lambda x: x.count("/"))
+
+# 6. 입력 특성과 레이블 분리 (유저 인코딩 포함)
+X = user_url_counts[["url_len", "slash_count", "user_id_enc"]]
+y = user_url_counts["is_normal"]
+
+# 7. 학습/검증 데이터 분할
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# 8. 모델 학습
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+model.fit(X_train, y_train)
+
+# 9. 성능 출력
+y_pred = model.predict(X_test)
+print("\n✅ 모델 성능:")
+print(classification_report(y_test, y_pred))
+
+# 10. 모델 및 LabelEncoder 저장
+os.makedirs("model", exist_ok=True)
+with open("model/model.pkl", "wb") as f:
+    pickle.dump(model, f)
+
+with open("model/label_encoder.pkl", "wb") as f:
+    pickle.dump(le, f)
+
+print("\n✅ 모델 및 인코더 저장 완료: model/model.pkl, model/label_encoder.pkl")
+
+# 11. 유저별 가장 많이 방문한 URL 출력 (참고용)
+most_visited = user_url_counts.sort_values(['user_id', 'visit_count'], ascending=[True, False])
+print("\n✅ 유저별 가장 많이 방문한 URL:")
+print(most_visited[["user_id", "url_path", "visit_count"]])
